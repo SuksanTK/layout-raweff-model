@@ -48,7 +48,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         merged_df = pd.merge(rawdata_df, stylelistcode_df, on='group', how='inner')
 
         # 4. เตรียมคอลัมน์สำคัญ
-        required_columns = ['line', 'LINKEFF', 'LINKOP', 'ID', 'SHIFT', 'STYLE', 'GROUP', 'JOBTITLE', 'Eff']
+        required_columns = ['line', 'linkeff', 'linkop', 'id', 'shift', 'style', 'group', 'jobtitle', 'eff']
         for col in required_columns:
             if col not in merged_df.columns:
                 merged_df[col] = 0 if pd.api.types.is_numeric_dtype(merged_df[col].dtype) else 'N/A'
@@ -65,7 +65,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         top3_df = merged_df[(merged_df['rank'] <= 3) & (merged_df['eff'] >= 35)]
 
         # 8. Group by และหาค่าเฉลี่ย
-        agg_df = top3_df.groupby(['LINKEFF', 'LINKOP', 'ID', 'LINE', 'SHIFT', 'STYLE', 'GROUP', 'JOBTITLE'], as_index=False)['eff'].mean()
+        agg_df = top3_df.groupby(['linkeff', 'linkop', 'id', 'line', 'shift', 'style', 'group', 'jobtitle'], as_index=False)['eff'].mean()
 
         # 9. เปลี่ยนชื่อคอลัมน์
         agg_df = agg_df.rename(columns={'eff': 'AvgEff'})
