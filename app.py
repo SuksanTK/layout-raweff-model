@@ -13,8 +13,9 @@ def process_layout_joiner(layout_file, stylelist_file):
     ทำการ Join ไฟล์ layout_master และ stylelistcode
     """
     try:
-        layout_master = pd.read_csv(layout_file)
-        stylelistcode = pd.read_csv(stylelist_file)
+        # --- FIX: เพิ่ม encoding='tis-620' ---
+        layout_master = pd.read_csv(layout_file, encoding='tis-620')
+        stylelistcode = pd.read_csv(stylelist_file, encoding='tis-620')
 
         # ทำการ JOIN ตาม Logic เดิม
         merged_df = pd.merge(
@@ -35,8 +36,9 @@ def process_rawdata_model(rawdata_file, stylelist_file):
     ประมวลผล Rawdata เพื่อสร้าง Model
     """
     try:
-        rawdata_df = pd.read_csv(rawdata_file)
-        stylelistcode_df = pd.read_csv(stylelist_file)
+        # --- FIX: เพิ่ม encoding='tis-620' ---
+        rawdata_df = pd.read_csv(rawdata_file, encoding='tis-620')
+        stylelistcode_df = pd.read_csv(stylelist_file, encoding='tis-620')
 
         # 2. ทำความสะอาดชื่อคอลัมน์
         rawdata_df.columns = rawdata_df.columns.str.strip().str.lower()
