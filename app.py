@@ -7,7 +7,7 @@ st.set_page_config(page_title="Data Processing App", layout="wide")
 st.title("⚙️ Data Processing Automation")
 st.markdown("อัปโหลดไฟล์ > เลือกแท็บ > กดปุ่มประมวลผล > ดาวน์โหลดผลลัพธ์")
 
-# ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 1 (เหมือนเดิม) ========== #
+# ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 1 ========== #
 def process_layout_joiner(layout_file, stylelist_file):
     try:
         layout_master = pd.read_csv(layout_file, encoding='utf-8-sig')
@@ -24,7 +24,7 @@ def process_layout_joiner(layout_file, stylelist_file):
         st.error(f"เกิดข้อผิดพลาดใน Layout Joiner: {e}")
         return None
 
-# ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 2 (เพิ่มส่วนตรวจสอบ) ========== #
+# ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 2 ========== #
 def process_rawdata_model(rawdata_file, stylelist_file):
     try:
         rawdata_df = pd.read_csv(rawdata_file, encoding='utf-8-sig')
@@ -33,44 +33,40 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         rawdata_df.columns = rawdata_df.columns.str.strip().str.lower()
         stylelistcode_df.columns = stylelistcode_df.columns.str.strip().str.lower()
 
-        # --- DEBUG 1: ตรวจสอบคอลัมน์ "ก่อน" การ Merge ---
-        st.info("ขั้นตอนที่ 1: ตรวจสอบคอลัมน์ 'ก่อน' การ Merge")
-        st.write("**คอลัมน์ใน `RawdataALL.csv`:**")
-        st.write(rawdata_df.columns.tolist())
-        st.write("**คอลัมน์ใน `stylelistcode.csv`:**")
-        st.write(stylelistcode_df.columns.tolist())
-        # -----------------------------------------------
+        # --- FINAL FIX: ลบคอลัมน์ที่ซ้ำออกจากตารางด้านขวา (stylelistcode) ก่อน Merge ---
+        # เราจะเก็บคอลัมน์ 'line' และ 'style' จาก rawdata_df ไว้เป็นหลัก
+        cols_to_drop = ['line', 'style']
+        stylelistcode_df_for_merge = stylelistcode_df.drop(columns=cols_to_drop, errors='ignore')
 
-        merged_df = pd.merge(rawdata_df, stylelistcode_df, on='group', how='inner')
-        
-        # --- DEBUG 2: ตรวจสอบคอลัมน์ "หลัง" การ Merge ---
-        st.info("ขั้นตอนที่ 2: ตรวจสอบคอลัมน์ 'หลัง' การ Merge")
-        st.write("**คอลัมน์ทั้งหมดหลังจากการ Merge คือ:**")
-        st.write(merged_df.columns.tolist())
-        # --------------------------------------------
+        # 3. INNER JOIN กับตารางที่แก้ไขแล้ว
+        merged_df = pd.merge(rawdata_df, stylelistcode_df_for_merge, on='group', how='inner')
 
-        # ถ้าเราเจอคอลัมน์ชื่อ 'line_x' ให้เปลี่ยนชื่อกลับมาเป็น 'line'
-        if 'line_x' in merged_df.columns:
-            st.warning("ตรวจพบคอลัมน์ 'line_x' (อาจเกิดจากชื่อซ้ำกัน) กำลังเปลี่ยนชื่อกลับเป็น 'line'")
-            merged_df = merged_df.rename(columns={'line_x': 'line'})
-
+        # 4. เตรียมคอลัมน์สำคัญ (ตอนนี้ชื่อจะไม่ถูกเปลี่ยนแล้ว)
         required_columns = ['line', 'linkeff', 'linkop', 'id', 'shift', 'style', 'group', 'jobtitle', 'eff']
         for col in required_columns:
             if col not in merged_df.columns:
-                st.error(f"หยุดการทำงาน: ไม่พบคอลัมน์ที่จำเป็น '{col}' กรุณาตรวจสอบผลการตรวจสอบด้านบน")
+                st.error(f"ไม่พบคอลัมน์ที่จำเป็น '{col}' กรุณาตรวจสอบไฟล์ CSV ของคุณ")
                 return None
 
+        # 5. คำนวณ eff_adjusted
         merged_df['eff'] = pd.to_numeric(merged_df['eff'], errors='coerce').fillna(0)
         merged_df['eff_adjusted'] = merged_df['eff'] * 1.05
+
+        # 6. สร้าง rank
         merged_df['rank'] = merged_df.groupby(['id', 'group', 'jobtitle'])['eff_adjusted'] \
                                      .rank(method='first', ascending=False)
+
+        # 7. กรองข้อมูล
         top3_df = merged_df[(merged_df['rank'] <= 3) & (merged_df['eff'] >= 35)]
         
         if top3_df.empty:
             st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไขการกรอง (rank <= 3 และ eff >= 35) จึงไม่มีผลลัพธ์")
             return pd.DataFrame()
 
+        # 8. Group by และหาค่าเฉลี่ย
         agg_df = top3_df.groupby(['linkeff', 'linkop', 'id', 'line', 'shift', 'style', 'group', 'jobtitle'], as_index=False)['eff'].mean()
+
+        # 9. เปลี่ยนชื่อคอลัมน์
         agg_df = agg_df.rename(columns={'eff': 'AvgEff'})
         
         return agg_df
@@ -78,7 +74,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         st.error(f"เกิดข้อผิดพลาดใน Raw Data Processor: {e}")
         return None
 
-# ========== ส่วนของ UI (เหมือนเดิม) ========== #
+# ========== ส่วนของ UI (User Interface) ========== #
 with st.sidebar:
     st.header("📂 อัปโหลดไฟล์ CSV")
     uploaded_layout_master = st.file_uploader("1. อัปโหลด layout_master.csv", type=["csv"])
