@@ -57,10 +57,10 @@ def process_rawdata_model(rawdata_file, stylelist_file):
                                      .rank(method='first', ascending=False)
 
         # 7. กรองข้อมูล
-        top3_df = merged_df[(merged_df['rank'] <= 3) & (merged_df['eff'] >= 35)]
+        top3_df = merged_df[(merged_df['rank'] <= 2) & (merged_df['eff'] >= 35)]
         
         if top3_df.empty:
-            st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไขการกรอง (rank <= 3 และ eff >= 35) จึงไม่มีผลลัพธ์")
+            st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไขการกรอง (rank <= 2 และ eff >= 35) จึงไม่มีผลลัพธ์")
             return pd.DataFrame()
 
         # 8. Group by และหาค่าเฉลี่ย
