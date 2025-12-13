@@ -7,15 +7,23 @@ st.set_page_config(page_title="Data Processing App", layout="wide")
 st.title("⚙️ Data Processing Automation")
 st.markdown("อัปโหลดไฟล์ > เลือกแท็บ > กดปุ่มประมวลผล > ดาวน์โหลดผลลัพธ์")
 
+# ฟังก์ชันช่วยสำหรับแสดงผลการนับเซลล์
+def get_cell_count_info(df, name):
+    rows = len(df)
+    cols = len(df.columns)
+    total_cells = rows * cols
+    # ใช้ {:,} เพื่อจัดรูปแบบตัวเลขให้มีเครื่องหมายจุลภาค (comma)
+    return f"💾 **{name}:** {rows:,} แถว x {cols:,} คอลัมน์ = **{total_cells:,}** เซลล์"
+
 # ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 1 ========== #
 def process_layout_joiner(layout_file, stylelist_file):
     try:
         layout_master = pd.read_csv(layout_file, encoding='utf-8-sig')
         stylelistcode = pd.read_csv(stylelist_file, encoding='utf-8-sig')
 
-        # เพิ่มการแสดงจำนวนแถวของไฟล์ที่อ่านเข้า
-        st.info(f"💾 **Layout Master:** มี {len(layout_master)} แถว")
-        st.info(f"💾 **Style List Code:** มี {len(stylelistcode)} แถว")
+        # เพิ่มการแสดงจำนวนเซลล์ของไฟล์ที่อ่านเข้า
+        st.info(get_cell_count_info(layout_master, "Layout Master"))
+        st.info(get_cell_count_info(stylelistcode, "Style List Code"))
         
         merged_df = pd.merge(
             layout_master, 
@@ -35,22 +43,21 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         rawdata_df = pd.read_csv(rawdata_file, encoding='utf-8-sig')
         stylelistcode_df = pd.read_csv(stylelist_file, encoding='utf-8-sig')
 
-        # เพิ่มการแสดงจำนวนแถวของไฟล์ที่อ่านเข้า
-        st.info(f"💾 **Raw Data ALL:** มี {len(rawdata_df)} แถว")
-        st.info(f"💾 **Style List Code (ใช้ซ้ำ):** มี {len(stylelistcode_df)} แถว")
+        # เพิ่มการแสดงจำนวนเซลล์ของไฟล์ที่อ่านเข้า
+        st.info(get_cell_count_info(rawdata_df, "Raw Data ALL"))
+        st.info(get_cell_count_info(stylelistcode_df, "Style List Code (ใช้ซ้ำ)"))
 
         rawdata_df.columns = rawdata_df.columns.str.strip().str.lower()
         stylelistcode_df.columns = stylelistcode_df.columns.str.strip().str.lower()
 
         # --- FINAL FIX: ลบคอลัมน์ที่ซ้ำออกจากตารางด้านขวา (stylelistcode) ก่อน Merge ---
-        # เราจะเก็บคอลัมน์ 'line' และ 'style' จาก rawdata_df ไว้เป็นหลัก
         cols_to_drop = ['line', 'style']
         stylelistcode_df_for_merge = stylelistcode_df.drop(columns=cols_to_drop, errors='ignore')
 
         # 3. INNER JOIN กับตารางที่แก้ไขแล้ว
         merged_df = pd.merge(rawdata_df, stylelistcode_df_for_merge, on='group', how='inner')
 
-        # 4. เตรียมคอลัมน์สำคัญ (ตอนนี้ชื่อจะไม่ถูกเปลี่ยนแล้ว)
+        # 4. เตรียมคอลัมน์สำคัญ
         required_columns = ['line', 'linkeff', 'linkop', 'id', 'shift', 'style', 'group', 'jobtitle', 'eff']
         for col in required_columns:
             if col not in merged_df.columns:
@@ -68,8 +75,9 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         # 7. กรองข้อมูล
         top3_df = merged_df[(merged_df['rank'] <= 2) & (merged_df['eff'] >= 35)]
         
-        # เพิ่มการแสดงจำนวนแถวของผลลัพธ์หลังการกรอง
-        st.info(f"📉 **ข้อมูลหลังกรอง (rank<=2 & eff>=35):** มี {len(top3_df)} แถว")
+        # เพิ่มการแสดงจำนวนเซลล์ของผลลัพธ์หลังการกรอง
+        if not top3_df.empty:
+            st.info(get_cell_count_info(top3_df, "ข้อมูลหลังกรอง (rank<=2 & eff>=35)"))
 
         if top3_df.empty:
             st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไขการกรอง (rank <= 2 และ eff >= 35) จึงไม่มีผลลัพธ์")
@@ -101,7 +109,6 @@ with tab1:
     
     if st.button("🚀 เริ่มประมวลผล Layout Joiner", key="btn1"):
         if uploaded_layout_master and uploaded_stylelistcode:
-            # ล้างสถานะผลลัพธ์ 1 ก่อนประมวลผลใหม่
             if 'df_result1' in st.session_state:
                 del st.session_state.df_result1 
 
@@ -109,7 +116,8 @@ with tab1:
                 st.session_state.df_result1 = process_layout_joiner(uploaded_layout_master, uploaded_stylelistcode)
             
             if st.session_state.df_result1 is not None:
-                st.success(f"✅ รวมไฟล์เรียบร้อยแล้ว! ผลลัพธ์มี **{len(st.session_state.df_result1)}** แถว")
+                info_text = get_cell_count_info(st.session_state.df_result1, "ผลลัพธ์สุดท้าย")
+                st.success(f"✅ รวมไฟล์เรียบร้อยแล้ว! ({info_text.split(':')[1].strip()})")
         else:
             st.warning("⚠️ กรุณาอัปโหลดไฟล์ `layout_master.csv` และ `stylelistcode.csv` ก่อน")
 
@@ -130,7 +138,6 @@ with tab2:
     
     if st.button("🚀 เริ่มประมวลผล Raw Data Model", key="btn2"):
         if uploaded_rawdata_all and uploaded_stylelistcode:
-            # ล้างสถานะผลลัพธ์ 2 ก่อนประมวลผลใหม่
             if 'df_result2' in st.session_state:
                 del st.session_state.df_result2 
 
@@ -138,7 +145,8 @@ with tab2:
                 st.session_state.df_result2 = process_rawdata_model(uploaded_rawdata_all, uploaded_stylelistcode)
             
             if 'df_result2' in st.session_state and st.session_state.df_result2 is not None:
-                st.success(f"✅ ประมวลผลข้อมูลเรียบร้อยแล้ว! ผลลัพธ์สุดท้ายมี **{len(st.session_state.df_result2)}** แถว")
+                info_text = get_cell_count_info(st.session_state.df_result2, "ผลลัพธ์สุดท้าย")
+                st.success(f"✅ ประมวลผลข้อมูลเรียบร้อยแล้ว! ({info_text.split(':')[1].strip()})")
         else:
             st.warning("⚠️ กรุณาอัปโหลดไฟล์ `RawdataALL.csv` และ `stylelistcode.csv` ก่อน")
 
