@@ -55,7 +55,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         stylelistcode_df_for_merge = stylelistcode_df.drop(columns=cols_to_drop, errors='ignore')
 
         # 3. INNER JOIN กับตารางที่แก้ไขแล้ว
-        merged_df = pd.merge(rawdata_df, stylelistcode_df_for_merge, on='group', how='inner')
+        merged_df = pd.merge(rawdata_df, stylelistcode_df_for_merge, on='style', how='inner')
 
         # 4. เตรียมคอลัมน์สำคัญ
         required_columns = ['line', 'linkeff', 'linkop', 'id', 'shift', 'style', 'group', 'jobtitle', 'eff']
@@ -69,7 +69,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         merged_df['eff_adjusted'] = merged_df['eff'] * 1.05
 
         # 6. สร้าง rank
-        merged_df['rank'] = merged_df.groupby(['id', 'group', 'jobtitle'])['eff_adjusted'] \
+        merged_df['rank'] = merged_df.groupby(['id', 'style', 'jobtitle'])['eff_adjusted'] \
                                      .rank(method='first', ascending=False)
 
         # 7. กรองข้อมูล
