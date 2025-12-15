@@ -75,8 +75,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         # 7. ตรวจสอบคอลัมน์ที่จำเป็น
         required_columns = [
             'line', 'linkeff', 'linkop',
-            'id', 'shift', 'style',
-            'group', 'jobtitle', 'eff'
+            'id', 'shift', 'style', 'jobtitle', 'eff'
         ]
 
         for col in required_columns:
@@ -91,7 +90,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
         # 9. สร้าง rank
         merged_df['rank'] = (
             merged_df
-            .groupby(['id', 'group', 'jobtitle'])['eff_adjusted']
+            .groupby(['id', 'style', 'jobtitle'])['eff_adjusted']
             .rank(method='first', ascending=False)
         )
 
