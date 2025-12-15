@@ -57,8 +57,8 @@ def process_rawdata_model(rawdata_file, stylelist_file):
             return None
 
         # 4. Normalize ค่า style (กัน space / ตัวพิมพ์)
-        rawdata_df['style'] = rawdata_df['style'].astype(str).str.strip().str.higher()
-        stylelistcode_df['style'] = stylelistcode_df['style'].astype(str).str.strip().str.higher()
+        rawdata_df['style'] = rawdata_df['style'].astype(str).str.strip().str.upper()
+        stylelistcode_df['style'] = stylelistcode_df['style'].astype(str).str.strip().str.upper()
 
         # 5. ลบคอลัมน์ซ้ำฝั่งขวา (ยกเว้น style)
         cols_to_drop = ['line']  # ❗ style ห้าม drop
