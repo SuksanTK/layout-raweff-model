@@ -111,7 +111,7 @@ def process_rawdata_model(rawdata_file, stylelist_file):
             top3_df
             .groupby(
                 ['linkeff', 'linkop', 'id', 'line',
-                 'shift', 'style', 'group', 'jobtitle'],
+                 'shift', 'style',  'jobtitle'],
                 as_index=False
             )['eff']
             .mean()
