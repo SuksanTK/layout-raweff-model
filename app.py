@@ -40,58 +40,91 @@ def process_layout_joiner(layout_file, stylelist_file):
 # ========== ฟังก์ชันการทำงานของโค้ดชุดที่ 2 ========== #
 def process_rawdata_model(rawdata_file, stylelist_file):
     try:
+        # 1. อ่านไฟล์
         rawdata_df = pd.read_csv(rawdata_file, encoding='utf-8-sig')
         stylelistcode_df = pd.read_csv(stylelist_file, encoding='utf-8-sig')
 
-        # เพิ่มการแสดงจำนวนเซลล์ของไฟล์ที่อ่านเข้า
         st.info(get_cell_count_info(rawdata_df, "Raw Data ALL"))
         st.info(get_cell_count_info(stylelistcode_df, "Style List Code (ใช้ซ้ำ)"))
 
+        # 2. ทำความสะอาดชื่อคอลัมน์
         rawdata_df.columns = rawdata_df.columns.str.strip().str.lower()
         stylelistcode_df.columns = stylelistcode_df.columns.str.strip().str.lower()
 
-        # --- FINAL FIX: ลบคอลัมน์ที่ซ้ำออกจากตารางด้านขวา (stylelistcode) ก่อน Merge ---
-        cols_to_drop = ['line', 'style']
+        # 3. ตรวจสอบคอลัมน์ style
+        if 'style' not in rawdata_df.columns or 'style' not in stylelistcode_df.columns:
+            st.error("❌ ไม่พบคอลัมน์ 'style' ในไฟล์ใดไฟล์หนึ่ง")
+            return None
+
+        # 4. Normalize ค่า style (กัน space / ตัวพิมพ์)
+        rawdata_df['style'] = rawdata_df['style'].astype(str).str.strip().str.lower()
+        stylelistcode_df['style'] = stylelistcode_df['style'].astype(str).str.strip().str.lower()
+
+        # 5. ลบคอลัมน์ซ้ำฝั่งขวา (ยกเว้น style)
+        cols_to_drop = ['line']  # ❗ style ห้าม drop
         stylelistcode_df_for_merge = stylelistcode_df.drop(columns=cols_to_drop, errors='ignore')
 
-        # 3. INNER JOIN กับตารางที่แก้ไขแล้ว
-        merged_df = pd.merge(rawdata_df, stylelistcode_df_for_merge, on='group', how='inner')
+        # 6. INNER JOIN ด้วย style
+        merged_df = pd.merge(
+            rawdata_df,
+            stylelistcode_df_for_merge,
+            on='style',
+            how='inner'
+        )
 
-        # 4. เตรียมคอลัมน์สำคัญ
-        required_columns = ['line', 'linkeff', 'linkop', 'id', 'shift', 'style', 'group', 'jobtitle', 'eff']
+        # 7. ตรวจสอบคอลัมน์ที่จำเป็น
+        required_columns = [
+            'line', 'linkeff', 'linkop',
+            'id', 'shift', 'style',
+            'group', 'jobtitle', 'eff'
+        ]
+
         for col in required_columns:
             if col not in merged_df.columns:
-                st.error(f"ไม่พบคอลัมน์ที่จำเป็น '{col}' กรุณาตรวจสอบไฟล์ CSV ของคุณ")
+                st.error(f"❌ ไม่พบคอลัมน์ที่จำเป็น '{col}'")
                 return None
 
-        # 5. คำนวณ eff_adjusted
+        # 8. คำนวณ eff_adjusted
         merged_df['eff'] = pd.to_numeric(merged_df['eff'], errors='coerce').fillna(0)
         merged_df['eff_adjusted'] = merged_df['eff'] * 1.05
 
-        # 6. สร้าง rank
-        merged_df['rank'] = merged_df.groupby(['id', 'group', 'jobtitle'])['eff_adjusted'] \
-                                     .rank(method='first', ascending=False)
+        # 9. สร้าง rank
+        merged_df['rank'] = (
+            merged_df
+            .groupby(['id', 'group', 'jobtitle'])['eff_adjusted']
+            .rank(method='first', ascending=False)
+        )
 
-        # 7. กรองข้อมูล
-        top3_df = merged_df[(merged_df['rank'] <= 2) & (merged_df['eff'] >= 35)]
-        
-        # เพิ่มการแสดงจำนวนเซลล์ของผลลัพธ์หลังการกรอง
-        if not top3_df.empty:
-            st.info(get_cell_count_info(top3_df, "ข้อมูลหลังกรอง (rank<=2 & eff>=35)"))
+        # 10. กรองข้อมูล
+        top3_df = merged_df[
+            (merged_df['rank'] <= 2) &
+            (merged_df['eff'] >= 35)
+        ]
 
         if top3_df.empty:
-            st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไขการกรอง (rank <= 2 และ eff >= 35) จึงไม่มีผลลัพธ์")
+            st.warning("ไม่พบข้อมูลที่ตรงตามเงื่อนไข (rank <= 2 และ eff >= 35)")
             return pd.DataFrame()
 
-        # 8. Group by และหาค่าเฉลี่ย
-        agg_df = top3_df.groupby(['linkeff', 'linkop', 'id', 'line', 'shift', 'style', 'group', 'jobtitle'], as_index=False)['eff'].mean()
+        st.info(get_cell_count_info(top3_df, "ข้อมูลหลังกรอง"))
 
-        # 9. เปลี่ยนชื่อคอลัมน์
+        # 11. Group by + Average
+        agg_df = (
+            top3_df
+            .groupby(
+                ['linkeff', 'linkop', 'id', 'line',
+                 'shift', 'style', 'group', 'jobtitle'],
+                as_index=False
+            )['eff']
+            .mean()
+        )
+
+        # 12. เปลี่ยนชื่อคอลัมน์
         agg_df = agg_df.rename(columns={'eff': 'AvgEff'})
-        
+
         return agg_df
+
     except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดใน Raw Data Processor: {e}")
+        st.error(f"❌ เกิดข้อผิดพลาดใน Raw Data Processor: {e}")
         return None
 
 # ========== ส่วนของ UI (User Interface) ========== #
